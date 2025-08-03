@@ -1,0 +1,632 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chop the pot!</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        .card {
+            transition: all 0.2s ease-in-out;
+            user-select: none;
+        }
+        .card.selected {
+            transform: scale(1.1);
+            box-shadow: 0 0 15px rgba(59, 130, 246, 0.8);
+            border-color: #3B82F6; /* blue-500 */
+        }
+        .card.disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+            background-color: #6B7280; /* gray-500 */
+        }
+        .suit-h, .suit-d { color: #EF4444; } /* red-500 */
+        .suit-c, .suit-s { color: #1F2937; } /* gray-800 */
+        .modal-backdrop {
+            background-color: rgba(0, 0, 0, 0.75);
+        }
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-800">
+
+    <div class="container mx-auto p-4 md:p-8">
+        <header class="text-center mb-8">
+            <h1 class="text-3xl md:text-4xl font-bold text-gray-900">Chop the Pot!</h1>
+            <p class="text-gray-600 mt-2">Easily calculate multiway split all-in pots.</p>
+        </header>
+
+        <main id="main-container" class="bg-white p-6 rounded-lg shadow-lg">
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                
+                <div id="initial-inputs" class="lg:col-span-2 space-y-6">
+                    <div>
+                        <h2 class="text-xl font-semibold mb-4 border-b pb-2">Players</h2>
+                        <div id="players-container" class="space-y-4">
+                            </div>
+                        <div class="mt-4 flex space-x-2">
+                            <button id="add-player-btn" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-md transition-colors">Add Player</button>
+                            <button id="remove-player-btn" class="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded-md transition-colors">Remove Player</button>
+                        </div>
+                    </div>
+
+                    <div>
+                        <h2 class="text-xl font-semibold mb-4 border-b pb-2">Board & Pot</h2>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div>
+                                <label for="main-pot" class="block font-medium mb-2">Main Pot Size (before all-ins)</label>
+                                <input type="number" id="main-pot" placeholder="Enter pot size" class="p-2 border rounded-md w-full" min="0">
+                            </div>
+                            <div>
+                                <label class="block font-medium mb-2">Pre-dealt Community Cards (Flop, etc.)</label>
+                                <div id="community-cards-container" class="flex items-center space-x-2">
+                                    </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-gray-50 p-6 rounded-lg shadow-inner space-y-6">
+                    <h2 class="text-xl font-semibold mb-4 border-b pb-2">Controls</h2>
+                    <div>
+                        <label class="block font-medium mb-2">Number of Runouts</label>
+                        <div class="flex space-x-4">
+                            <label class="flex items-center"><input type="radio" name="runouts" value="1" class="mr-2" checked> 1</label>
+                            <label class="flex items-center"><input type="radio" name="runouts" value="2" class="mr-2"> 2</label>
+                            <label class="flex items-center"><input type="radio" name="runouts" value="3" class="mr-2"> 3</label>
+                        </div>
+                    </div>
+                    <div class="pt-4">
+                        <button id="setup-runouts-btn" class="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-4 rounded-md text-lg transition-colors">Setup Runouts</button>
+                        <button id="reset-btn" class="w-full mt-3 bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded-md transition-colors">Reset All</button>
+                    </div>
+                </div>
+            </div>
+
+            <div id="runout-inputs-section" class="hidden mt-8">
+                 <h2 class="text-2xl font-bold mb-4 border-b-2 pb-2">Define Runout Cards</h2>
+                 <div id="runout-inputs-container" class="space-y-6">
+                     </div>
+                 <button id="calculate-btn" class="w-full mt-6 bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 px-4 rounded-md text-lg transition-colors">Calculate Final Winnings</button>
+            </div>
+
+
+            <div id="results-section" class="hidden mt-10">
+                <div id="accordion-header" class="flex justify-between items-center cursor-pointer p-4 bg-gray-100 hover:bg-gray-200 transition-colors rounded-t-lg border-b">
+                    <h2 class="text-2xl font-bold text-gray-800">Runout Details</h2>
+                    <span id="accordion-icon" class="text-2xl">▶️</span>
+                </div>
+                <div id="runouts-results-container" class="hidden p-4 border border-t-0 rounded-b-lg">
+                    </div>
+                <div id="summary-section" class="mt-8 p-6 bg-blue-50 rounded-lg">
+                    <h3 class="text-xl font-semibold mb-4">✅ Final Winnings Summary</h3>
+                    <div id="summary-container" class="space-y-2"></div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <div id="card-picker-modal" class="fixed inset-0 w-full h-full flex items-center justify-center hidden z-50">
+        <div class="modal-backdrop absolute inset-0 w-full h-full"></div>
+        <div class="bg-white rounded-lg shadow-2xl p-6 z-10 w-11/12 md:w-3/4 lg:w-1/2 max-w-4xl">
+            <h3 class="text-2xl font-bold mb-6 text-center">Select a Card</h3>
+            <div id="card-picker-grid" class="grid grid-cols-7 sm:grid-cols-13 gap-2"></div>
+            <div class="text-center mt-6">
+                <button id="close-modal-btn" class="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded-md">Close</button>
+            </div>
+        </div>
+    </div>
+    <div id="error-modal" class="fixed inset-0 w-full h-full flex items-center justify-center hidden z-50">
+        <div class="modal-backdrop absolute inset-0 w-full h-full"></div>
+        <div class="bg-white rounded-lg shadow-2xl p-6 z-10 w-10/12 md:w-1/3 max-w-md">
+            <h3 class="text-xl font-bold mb-4 text-red-600">Input Error</h3>
+            <p id="error-message-content"></p>
+            <div class="text-right mt-6">
+                <button id="close-error-modal-btn" class="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded-md">OK</button>
+            </div>
+        </div>
+    </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+
+    // --- DOM ELEMENTS ---
+    const playersContainer = document.getElementById('players-container');
+    const addPlayerBtn = document.getElementById('add-player-btn');
+    const removePlayerBtn = document.getElementById('remove-player-btn');
+    const setupRunoutsBtn = document.getElementById('setup-runouts-btn');
+    const calculateBtn = document.getElementById('calculate-btn');
+    const resetBtn = document.getElementById('reset-btn');
+    const runoutInputsSection = document.getElementById('runout-inputs-section');
+    const runoutInputsContainer = document.getElementById('runout-inputs-container');
+    const resultsSection = document.getElementById('results-section');
+    const accordionHeader = document.getElementById('accordion-header');
+    const accordionIcon = document.getElementById('accordion-icon');
+    const runoutsResultsContainer = document.getElementById('runouts-results-container');
+    const summaryContainer = document.getElementById('summary-container');
+    const cardPickerModal = document.getElementById('card-picker-modal');
+    const cardPickerGrid = document.getElementById('card-picker-grid');
+    const closeModalBtn = document.getElementById('close-modal-btn');
+    const errorModal = document.getElementById('error-modal');
+    const errorMessageContent = document.getElementById('error-message-content');
+    const closeErrorModalBtn = document.getElementById('close-error-modal-btn');
+    const communityCardsContainer = document.getElementById('community-cards-container');
+
+
+    // --- CONSTANTS & STATE ---
+    const SUITS = { 's': '♠', 'h': '♥', 'd': '♦', 'c': '♣' };
+    const RANKS = ['2', '3', '4', '5', '6', '7', '8', '9', 'T', 'J', 'Q', 'K', 'A'];
+    const RANK_VALUES = { '2': 2, '3': 3, '4': 4, '5': 5, '6': 6, '7': 7, '8': 8, '9': 9, 'T': 10, 'J': 11, 'Q': 12, 'K': 13, 'A': 14 };
+
+    let fullDeck = [];
+    let selectedCards = new Set();
+    let currentCardPickerTarget = null;
+    let playerCount = 0;
+
+    // --- INITIALIZATION ---
+    function initializeApp() {
+        createDeck();
+        setupEventListeners();
+        addPlayer();
+        addPlayer();
+        updatePlayerButtons();
+        for (let i = 0; i < 5; i++) {
+            communityCardsContainer.innerHTML += `<div class="card-placeholder w-12 h-16 border-2 border-dashed rounded-md flex items-center justify-center text-gray-400 cursor-pointer" data-card-index="${i}"></div>`;
+        }
+    }
+
+    function createDeck() {
+        fullDeck = [];
+        for (const suit of Object.keys(SUITS)) {
+            for (const rank of RANKS) {
+                fullDeck.push({ rank, suit, val: RANK_VALUES[rank], str: rank + suit });
+            }
+        }
+    }
+
+    // --- EVENT LISTENERS ---
+    function setupEventListeners() {
+        addPlayerBtn.addEventListener('click', addPlayer);
+        removePlayerBtn.addEventListener('click', removePlayer);
+        setupRunoutsBtn.addEventListener('click', setupRunouts);
+        calculateBtn.addEventListener('click', runFinalCalculation);
+        resetBtn.addEventListener('click', () => location.reload());
+        closeModalBtn.addEventListener('click', closeCardPicker);
+        cardPickerModal.querySelector('.modal-backdrop').addEventListener('click', closeCardPicker);
+        closeErrorModalBtn.addEventListener('click', closeErrorModal);
+        errorModal.querySelector('.modal-backdrop').addEventListener('click', closeErrorModal);
+        
+        document.body.addEventListener('click', (e) => {
+            const cardSlot = e.target.closest('.card-placeholder');
+            if (cardSlot) {
+                openCardPicker(cardSlot);
+            }
+        });
+
+        document.body.addEventListener('focusin', (e) => {
+            if (e.target.matches('.player-name')) {
+                if (/^Player \d+$/.test(e.target.value)) {
+                    e.target.value = '';
+                }
+            }
+        });
+
+        accordionHeader.addEventListener('click', () => {
+            runoutsResultsContainer.classList.toggle('hidden');
+            const isHidden = runoutsResultsContainer.classList.contains('hidden');
+            accordionIcon.textContent = isHidden ? '▶️' : '🔽';
+        });
+    }
+
+    // --- PLAYER MANAGEMENT ---
+    function addPlayer() {
+        if (playerCount >= 4) {
+            showError("Maximum of 4 players allowed.");
+            return;
+        }
+        playerCount++;
+        const playerDiv = document.createElement('div');
+        playerDiv.className = 'player-input-group p-4 border rounded-lg';
+        playerDiv.dataset.playerId = playerCount;
+        playerDiv.innerHTML = `
+            <div class="flex items-center justify-between mb-3"><h3 class="text-lg font-medium">Player ${playerCount}</h3></div>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <input type="text" placeholder="Player Name" class="player-name p-2 border rounded-md w-full" value="Player ${playerCount}">
+                <input type="number" placeholder="Stack Size (All-in amount)" class="player-stack p-2 border rounded-md w-full" min="0">
+                <div class="player-cards flex items-center space-x-2">
+                    <div class="card-placeholder w-12 h-16 border-2 border-dashed rounded-md flex items-center justify-center text-gray-400 cursor-pointer" data-card-index="0">Card 1</div>
+                    <div class="card-placeholder w-12 h-16 border-2 border-dashed rounded-md flex items-center justify-center text-gray-400 cursor-pointer" data-card-index="1">Card 2</div>
+                </div>
+            </div>`;
+        playersContainer.appendChild(playerDiv);
+        updatePlayerButtons();
+    }
+
+    function removePlayer() {
+        if (playerCount <= 2) {
+            showError("Minimum of 2 players required.");
+            return;
+        }
+        const lastPlayer = playersContainer.querySelector(`[data-player-id='${playerCount}']`);
+        lastPlayer.querySelectorAll('.card-placeholder[data-card]').forEach(ph => selectedCards.delete(ph.dataset.card));
+        lastPlayer.remove();
+        playerCount--;
+        updatePlayerButtons();
+    }
+
+    function updatePlayerButtons() {
+        addPlayerBtn.disabled = playerCount >= 4;
+        removePlayerBtn.disabled = playerCount <= 2;
+        addPlayerBtn.classList.toggle('opacity-50', playerCount >= 4);
+        removePlayerBtn.classList.toggle('opacity-50', playerCount <= 2);
+    }
+
+    // --- CARD PICKER LOGIC ---
+    function openCardPicker(targetElement) {
+        currentCardPickerTarget = targetElement;
+        renderCardPicker();
+        cardPickerModal.classList.remove('hidden');
+    }
+
+    function closeCardPicker() {
+        cardPickerModal.classList.add('hidden');
+        currentCardPickerTarget = null;
+    }
+
+    function renderCardPicker() {
+        cardPickerGrid.innerHTML = '';
+        selectedCards.clear();
+        const currentCardStr = currentCardPickerTarget ? currentCardPickerTarget.dataset.card : null;
+        document.querySelectorAll('.card-placeholder[data-card]').forEach(el => {
+            if(el.dataset.card !== currentCardStr) {
+                selectedCards.add(el.dataset.card)
+            }
+        });
+        
+        fullDeck.forEach(card => {
+            const cardEl = document.createElement('div');
+            const isSelected = selectedCards.has(card.str);
+            cardEl.className = `card w-12 h-16 border-2 rounded-md flex flex-col items-center justify-center font-bold text-xl cursor-pointer bg-white ${isSelected ? 'disabled' : ''}`;
+            cardEl.innerHTML = `<span class="suit-${card.suit}">${card.rank}</span><span class="text-2xl suit-${card.suit}">${SUITS[card.suit]}</span>`;
+            if (!isSelected) {
+                cardEl.addEventListener('click', () => selectCard(card));
+            }
+            cardPickerGrid.appendChild(cardEl);
+        });
+    }
+
+    function selectCard(card) {
+        const oldCard = currentCardPickerTarget.dataset.card;
+        if (oldCard) {
+            selectedCards.delete(oldCard);
+        }
+        selectedCards.add(card.str);
+        currentCardPickerTarget.dataset.card = card.str;
+        currentCardPickerTarget.innerHTML = `<span class="text-xl font-bold suit-${card.suit}">${card.rank}${SUITS[card.suit]}</span>`;
+        currentCardPickerTarget.classList.remove('border-dashed', 'text-gray-400');
+        currentCardPickerTarget.classList.add('border-solid', 'shadow-inner');
+        closeCardPicker();
+    }
+
+    // --- UI & ERROR HANDLING ---
+    function showError(message) {
+        errorMessageContent.textContent = message;
+        errorModal.classList.remove('hidden');
+    }
+
+    function closeErrorModal() {
+        errorModal.classList.add('hidden');
+    }
+
+    function renderCards(cards) {
+        if (!Array.isArray(cards)) cards = [cards];
+        return cards.map(card => {
+            if (!card || !card.str) return '';
+            return `<div class="card inline-block w-12 h-16 border-2 rounded-md flex flex-col items-center justify-center font-bold text-xl bg-white shadow-sm mx-1">
+                        <span class="suit-${card.suit}">${card.rank}</span>
+                        <span class="text-2xl suit-${card.suit}">${SUITS[card.suit]}</span>
+                    </div>`;
+        }).join('');
+    }
+
+    // --- DATA GATHERING & VALIDATION ---
+    function getInitialInputs() {
+        const players = [];
+        let validationError = null;
+        document.querySelectorAll('.player-input-group').forEach(playerEl => {
+            if (validationError) return;
+            const id = parseInt(playerEl.dataset.playerId);
+            const name = playerEl.querySelector('.player-name').value.trim();
+            const stack = parseFloat(playerEl.querySelector('.player-stack').value);
+            const holeCards = Array.from(playerEl.querySelectorAll('.player-cards .card-placeholder[data-card]')).map(el => el.dataset.card);
+            if (!name) validationError = `Player ${id} must have a name.`;
+            else if (isNaN(stack) || stack < 0) validationError = `Player "${name}" must have a valid stack size (0 or greater).`;
+            else if (holeCards.length !== 2) validationError = `Player "${name}" must have 2 hole cards selected.`;
+            else players.push({ id, name, stack, holeCardsStr: holeCards, winnings: 0 });
+        });
+        if (validationError) { showError(validationError); return null; }
+        const mainPot = parseFloat(document.getElementById('main-pot').value);
+        if (isNaN(mainPot) || mainPot < 0) { showError("Main Pot must be a valid number (0 or greater)."); return null; }
+        const communityCardsStr = Array.from(communityCardsContainer.querySelectorAll('.card-placeholder[data-card]')).map(el => el.dataset.card);
+        if (![0, 3, 4, 5].includes(communityCardsStr.length)) { showError("You must select 0, 3, 4, or 5 pre-dealt community cards."); return null; }
+        const numRunouts = parseInt(document.querySelector('input[name="runouts"]:checked').value);
+        if (communityCardsStr.length === 5 && numRunouts > 1) { showError("You cannot have multiple runouts with a full 5-card board already dealt."); return null; }
+        return { players, mainPot, communityCardsStr, numRunouts };
+    }
+
+    // --- POKER HAND EVALUATION LOGIC ---
+    function evaluateHand(sevenCards) {
+        const allCombinations = getCombinations(sevenCards, 5);
+        return allCombinations.reduce((bestHand, currentHand) => {
+            const currentHandValue = getFiveCardHandValue(currentHand);
+            return currentHandValue.score > bestHand.score ? currentHandValue : bestHand;
+        }, { score: -1, name: "No Hand", cards: [] });
+    }
+
+    function getCombinations(set, k) {
+        if (k > set.length || k <= 0) return [];
+        if (k === set.length) return [set];
+        if (k === 1) return set.map(item => [item]);
+        const combs = [];
+        for (let i = 0; i <= set.length - k; i++) {
+            const head = set.slice(i, i + 1);
+            const tailcombs = getCombinations(set.slice(i + 1), k - 1);
+            for (let j = 0; j < tailcombs.length; j++) combs.push(head.concat(tailcombs[j]));
+        }
+        return combs;
+    }
+
+    function getFiveCardHandValue(hand) {
+        hand.sort((a, b) => b.val - a.val);
+        const values = hand.map(c => c.val);
+        
+        const isFlush = new Set(hand.map(c => c.suit)).size === 1;
+        const isWheel = values.toString() === '14,5,4,3,2';
+        const isStraight = isWheel || (new Set(values).size === 5 && values[0] - values[4] === 4);
+
+        const rankCounts = values.reduce((acc, val) => ({ ...acc, [val]: (acc[val] || 0) + 1 }), {});
+        const sortedUniqueValues = Object.keys(rankCounts).map(Number).sort((a, b) => rankCounts[a] !== rankCounts[b] ? rankCounts[b] - rankCounts[a] : b - a);
+        
+        const HAND_RANKS = { SF: 8, QUADS: 7, FULL_HOUSE: 6, FLUSH: 5, STRAIGHT: 4, TRIPS: 3, TWO_PAIR: 2, PAIR: 1, HIGH_CARD: 0 };
+        const cardScore = (vals) => vals.reduce((score, val, i) => score + val * Math.pow(14, 4 - i), 0);
+
+        if (isStraight && isFlush) {
+            const highValue = isWheel ? 5 : values[0];
+            const score = HAND_RANKS.SF * 1e11 + highValue;
+            const name = highValue === 14 ? 'Royal Flush' : `Straight Flush, ${getRankName(highValue)} high`;
+            return { score, name, cards: hand };
+        }
+        if (rankCounts[sortedUniqueValues[0]] === 4) {
+            const score = HAND_RANKS.QUADS * 1e11 + cardScore(sortedUniqueValues);
+            const name = `Four of a Kind, ${getRankName(sortedUniqueValues[0], true)}`;
+            return { score, name, cards: hand };
+        }
+        if (rankCounts[sortedUniqueValues[0]] === 3 && rankCounts[sortedUniqueValues[1]] === 2) {
+            const score = HAND_RANKS.FULL_HOUSE * 1e11 + cardScore(sortedUniqueValues);
+            const name = `Full House, ${getRankName(sortedUniqueValues[0], true)} over ${getRankName(sortedUniqueValues[1], true)}`;
+            return { score, name, cards: hand };
+        }
+        if (isFlush) {
+            const score = HAND_RANKS.FLUSH * 1e11 + cardScore(values);
+            const name = `Flush, ${getRankName(values[0])} high`;
+            return { score, name, cards: hand };
+        }
+        if (isStraight) {
+            const highValue = isWheel ? 5 : values[0];
+            const score = HAND_RANKS.STRAIGHT * 1e11 + highValue;
+            const name = `Straight, ${getRankName(highValue)} high`;
+            return { score, name, cards: hand };
+        }
+        if (rankCounts[sortedUniqueValues[0]] === 3) {
+            const score = HAND_RANKS.TRIPS * 1e11 + cardScore(sortedUniqueValues);
+            const name = `Three of a Kind, ${getRankName(sortedUniqueValues[0], true)}`;
+            return { score, name, cards: hand };
+        }
+        if (rankCounts[sortedUniqueValues[0]] === 2 && rankCounts[sortedUniqueValues[1]] === 2) {
+            const score = HAND_RANKS.TWO_PAIR * 1e11 + cardScore(sortedUniqueValues);
+            const name = `Two Pair, ${getRankName(sortedUniqueValues[0], true)} and ${getRankName(sortedUniqueValues[1], true)}`;
+            return { score, name, cards: hand };
+        }
+        if (rankCounts[sortedUniqueValues[0]] === 2) {
+            const score = HAND_RANKS.PAIR * 1e11 + cardScore(sortedUniqueValues);
+            const name = `One Pair of ${getRankName(sortedUniqueValues[0], true)}`;
+            return { score, name, cards: hand };
+        }
+        
+        const score = HAND_RANKS.HIGH_CARD * 1e11 + cardScore(values);
+        const name = `High Card ${getRankName(values[0])}`;
+        return { score, name, cards: hand };
+    }
+
+    function getRankName(value, plural = false) {
+        const names = {14:'Ace', 13:'King', 12:'Queen', 11:'Jack', 10:'Ten', 9:'Nine', 8:'Eight', 7:'Seven', 6:'Six', 5:'Five', 4:'Four', 3:'Three', 2:'Two'};
+        let name = names[value] || '';
+        if (plural) name += (name === 'Six' ? 'es' : 's');
+        return name;
+    }
+
+    // --- CORE CALCULATION LOGIC ---
+    function setupRunouts() {
+        resultsSection.classList.add('hidden');
+        runoutInputsContainer.innerHTML = '';
+        const inputs = getInitialInputs();
+        if (!inputs) return;
+        const { communityCardsStr, numRunouts } = inputs;
+        const cardsToDealPerRunout = 5 - communityCardsStr.length;
+        if (cardsToDealPerRunout <= 0) {
+            showError("The board is already complete. Only 1 runout is possible.");
+            return;
+        }
+        const preDealtHtml = renderCards(communityCardsStr.map(str => fullDeck.find(c => c.str === str)));
+        for (let i = 1; i <= numRunouts; i++) {
+            let placeholders = '';
+            for (let j = 0; j < cardsToDealPerRunout; j++) {
+                placeholders += `<div class="card-placeholder w-12 h-16 border-2 border-dashed rounded-md flex items-center justify-center text-gray-400 cursor-pointer" data-card-index="${j}"></div>`;
+            }
+            const runoutInputHtml = `
+                <div class="runout-input-group p-4 border rounded-lg bg-gray-50" data-runout-id="${i}">
+                    <h3 class="text-lg font-semibold mb-3">Runout #${i}</h3>
+                    <div class="flex items-center space-x-4">
+                        <div class="flex items-center">
+                            <span class="font-medium mr-2">Pre-dealt:</span>
+                            <div class="flex flex-wrap">${preDealtHtml || '<span class="text-gray-500">None</span>'}</div>
+                        </div>
+                        <div class="flex items-center space-x-2">${placeholders}</div>
+                    </div>
+                </div>`;
+            runoutInputsContainer.innerHTML += runoutInputHtml;
+        }
+        document.getElementById('initial-inputs').classList.add('opacity-50', 'pointer-events-none');
+        setupRunoutsBtn.classList.add('hidden');
+        runoutInputsSection.classList.remove('hidden');
+    }
+
+    function runFinalCalculation() {
+        const initialInputs = getInitialInputs();
+        if (!initialInputs) return;
+
+        runoutInputsSection.classList.add('hidden'); // Hide input section
+        
+        const { players, mainPot, communityCardsStr, numRunouts } = initialInputs;
+        const preDealtCards = communityCardsStr.map(str => fullDeck.find(c => c.str === str));
+
+        const runoutBoards = [];
+        let validationError = null;
+        for (let i = 1; i <= numRunouts; i++) {
+            if (validationError) continue;
+            const runoutGroup = document.querySelector(`.runout-input-group[data-runout-id="${i}"]`);
+            const runoutCardStrs = Array.from(runoutGroup.querySelectorAll('.card-placeholder[data-card]')).map(el => el.dataset.card);
+            const expectedCards = 5 - preDealtCards.length;
+            if (runoutCardStrs.length !== expectedCards) {
+                validationError = `Please select all ${expectedCards} cards for Runout #${i}.`;
+            } else {
+                const runoutCards = runoutCardStrs.map(str => fullDeck.find(c => c.str === str));
+                runoutBoards.push([...preDealtCards, ...runoutCards]);
+            }
+        }
+        if (validationError) { showError(validationError); return; }
+
+        players.forEach(p => {
+            p.holeCards = p.holeCardsStr.map(str => fullDeck.find(c => c.str === str));
+            p.winnings = 0;
+        });
+        runoutsResultsContainer.innerHTML = '';
+        summaryContainer.innerHTML = '';
+        resultsSection.classList.remove('hidden');
+        
+        runoutsResultsContainer.className = `hidden p-4 border border-t-0 rounded-b-lg grid gap-8 grid-cols-1 ${numRunouts > 1 ? 'md:grid-cols-2' : ''} ${numRunouts > 2 ? 'lg:grid-cols-3' : ''}`;
+        accordionIcon.textContent = '▶️'; // Reset accordion to closed
+
+        const pots = createPots(players, mainPot);
+
+        runoutBoards.forEach((board, index) => {
+            const runoutNum = index + 1;
+            players.forEach(player => player.hand = evaluateHand([...player.holeCards, ...board]));
+
+            let potDistributionHtml = '';
+            pots.forEach((pot, potIndex) => {
+                const potName = potIndex === 0 ? "Main Pot" : `Side Pot ${potIndex}`;
+                let bestScore = -1;
+                let winners = [];
+                pot.eligiblePlayers.forEach(playerId => {
+                    const player = players.find(p => p.id === playerId);
+                    if (player.hand.score > bestScore) {
+                        bestScore = player.hand.score;
+                        winners = [player];
+                    } else if (player.hand.score === bestScore) {
+                        winners.push(player);
+                    }
+                });
+                
+                const amountWonThisRunout = pot.size / winners.length;
+                const amountToAdd_toTotal = amountWonThisRunout / numRunouts;
+
+                potDistributionHtml += `<p><span class="font-semibold">${potName} ($${pot.size.toFixed(2)}):</span> `;
+                const winnerText = winners.map(winner => {
+                    winner.winnings += amountToAdd_toTotal;
+                    return `${winner.name} wins $${amountToAdd_toTotal.toFixed(2)}`;
+                }).join(', ');
+
+                potDistributionHtml += winnerText + '</p>';
+            });
+            renderRunoutResult(runoutNum, board, players, potDistributionHtml);
+        });
+        renderSummary(players);
+    }
+
+    function createPots(players, mainPot) {
+        const sortedPlayers = [...players].sort((a, b) => a.stack - b.stack);
+        const pots = [];
+        let lastStack = 0;
+        for (const player of sortedPlayers) {
+            if (player.stack <= lastStack) continue;
+            const contribution = player.stack - lastStack;
+            const playersInPot = players.filter(p => p.stack >= player.stack);
+            
+            pots.push({
+                size: contribution * playersInPot.length,
+                eligiblePlayers: playersInPot.map(p => p.id)
+            });
+            lastStack = player.stack;
+        }
+        if (pots.length > 0) {
+            pots[0].size += mainPot;
+        } else {
+             pots.push({ size: mainPot, eligiblePlayers: players.map(p => p.id) });
+        }
+        return pots.filter(p => p.eligiblePlayers.length > 1 && p.size > 0);
+    }
+
+    function renderRunoutResult(runoutNum, board, players, potDistributionHtml) {
+        const resultDiv = document.createElement('div');
+        resultDiv.className = 'p-4 border rounded-lg bg-white';
+        
+        let playersHtml = players.map(p => `
+            <div class="p-3 bg-gray-50 rounded-md">
+                <p class="font-semibold text-gray-800">${p.name}</p>
+                <div class="mt-2 space-y-2">
+                    <div class="flex items-center flex-wrap gap-y-2">
+                        <strong class="mr-2">Hole Cards:</strong> ${renderCards(p.holeCards)}
+                    </div>
+                    <div class="flex items-center flex-wrap gap-y-2">
+                        <strong class="mr-2">Best Hand:</strong>
+                        <span class="text-blue-600 font-medium mr-2">${p.hand.name}</span>
+                        <div class="inline-flex flex-wrap">${renderCards(p.hand.cards)}</div>
+                    </div>
+                </div>
+            </div>`).join('');
+
+        resultDiv.innerHTML = `
+            <h3 class="text-xl font-semibold mb-3">Runout #${runoutNum}</h3>
+            <div class="mb-4">
+                <h4 class="font-medium mb-2">Board:</h4>
+                <div class="flex flex-wrap">${renderCards(board)}</div>
+            </div>
+            <div class="space-y-3 mb-4">${playersHtml}</div>
+            <div>
+                <h4 class="font-medium mb-2">Winnings From This Runout:</h4>
+                <div class="text-sm space-y-1">${potDistributionHtml}</div>
+            </div>`;
+        runoutsResultsContainer.appendChild(resultDiv);
+    }
+
+    function renderSummary(players) {
+        summaryContainer.innerHTML = players.map(p => `
+            <div class="flex justify-between items-center p-2 bg-white rounded shadow-sm">
+                <span class="font-bold text-lg text-blue-800">${p.name}</span>
+                <span class="font-semibold text-lg text-green-700">$${p.winnings.toFixed(2)}</span>
+            </div>`).join('');
+    }
+
+    // --- START THE APP ---
+    initializeApp();
+});
+</script>
+
+</body>
+</html>
