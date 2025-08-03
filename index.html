@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Chop the pot!</title>
+    <title>Chop the Pot!</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -490,7 +490,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const initialInputs = getInitialInputs();
         if (!initialInputs) return;
 
-        runoutInputsSection.classList.add('hidden'); // Hide input section
+        runoutInputsSection.classList.add('hidden');
         
         const { players, mainPot, communityCardsStr, numRunouts } = initialInputs;
         const preDealtCards = communityCardsStr.map(str => fullDeck.find(c => c.str === str));
@@ -519,9 +519,12 @@ document.addEventListener('DOMContentLoaded', () => {
         summaryContainer.innerHTML = '';
         resultsSection.classList.remove('hidden');
         
+        runoutsResultsContainer.classList.add('hidden'); // Default accordion to closed
         runoutsResultsContainer.className = `hidden p-4 border border-t-0 rounded-b-lg grid gap-8 grid-cols-1 ${numRunouts > 1 ? 'md:grid-cols-2' : ''} ${numRunouts > 2 ? 'lg:grid-cols-3' : ''}`;
-        accordionIcon.textContent = '▶️'; // Reset accordion to closed
+        accordionIcon.textContent = '▶️';
 
+        const allStacks = players.map(p => p.stack).sort((a, b) => b - a);
+        const maxAtRisk = allStacks.length > 1 ? allStacks[1] : allStacks[0];
         const pots = createPots(players, mainPot);
 
         runoutBoards.forEach((board, index) => {
@@ -556,7 +559,7 @@ document.addEventListener('DOMContentLoaded', () => {
             });
             renderRunoutResult(runoutNum, board, players, potDistributionHtml);
         });
-        renderSummary(players);
+        renderSummary(players, maxAtRisk);
     }
 
     function createPots(players, mainPot) {
@@ -615,12 +618,23 @@ document.addEventListener('DOMContentLoaded', () => {
         runoutsResultsContainer.appendChild(resultDiv);
     }
 
-    function renderSummary(players) {
-        summaryContainer.innerHTML = players.map(p => `
-            <div class="flex justify-between items-center p-2 bg-white rounded shadow-sm">
-                <span class="font-bold text-lg text-blue-800">${p.name}</span>
-                <span class="font-semibold text-lg text-green-700">$${p.winnings.toFixed(2)}</span>
-            </div>`).join('');
+    function renderSummary(players, maxAtRisk) {
+        summaryContainer.innerHTML = players.map(p => {
+            const unriskedAmount = Math.max(0, p.stack - maxAtRisk);
+            const finalStack = p.winnings + unriskedAmount;
+            
+            let winningsHtml = `<span class="font-semibold text-lg text-green-700">$${p.winnings.toFixed(2)}</span>`;
+
+            if (unriskedAmount > 0) {
+                winningsHtml += `<span class="text-sm text-gray-500 ml-2">($${finalStack.toFixed(2)} in stack)</span>`;
+            }
+
+            return `
+                <div class="flex justify-between items-center p-2 bg-white rounded shadow-sm">
+                    <span class="font-bold text-lg text-blue-800">${p.name}</span>
+                    <div class="text-right">${winningsHtml}</div>
+                </div>`;
+        }).join('');
     }
 
     // --- START THE APP ---
